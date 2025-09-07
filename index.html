@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Passport Photo Maker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background: linear-gradient(135deg, #a8d4ff 0%, #69a3ff 50%, #4a90ff 100%); 
+      min-height: 100vh; overflow-x: hidden; 
+    }
+    .card { 
+      box-shadow: 0 12px 32px rgba(0,0,0,0.15); 
+      border-radius: 16px; 
+      background: rgba(255,255,255,0.95); 
+      backdrop-filter: blur(12px); 
+      transition: transform 0.3s; 
+    }
+    .card:hover { transform: translateY(-2px); }
+    .preview-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+      gap: 20px; margin-top: 20px; 
+    }
+    .preview-item { 
+      border-radius: 12px; 
+      overflow: hidden; 
+      position: relative; 
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1); 
+      cursor: pointer; 
+    }
+    .preview-img { width: 100%; height: 160px; object-fit: cover; }
+    .remove-btn { 
+      position: absolute; top: 5px; right: 5px; 
+      background: rgba(255,0,0,0.8); color: white; 
+      border-radius: 50%; width: 25px; height: 25px; 
+      display: flex; align-items: center; justify-content: center; 
+      font-size: 14px; opacity: 0; transition: opacity 0.3s; 
+    }
+    .preview-item:hover .remove-btn { opacity: 1; }
+    .upload-zone { 
+      border: 3px dashed #4a90ff; padding: 50px; text-align: center; 
+      background: rgba(255,255,255,0.8); 
+      transition: border-color 0.3s, background 0.3s; 
+    }
+    .upload-zone:hover { border-color: #2e6bff; background: rgba(255,255,255,1); }
+    .control-panel { 
+      margin-bottom: 20px; display: flex; 
+      flex-wrap: wrap; gap: 15px; 
+      align-items: center; justify-content: center; 
+    }
+    .canvas-container { text-align: center; margin-top: 20px; }
+    canvas { 
+      border-radius: 8px; 
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2); 
+      max-width: 100%; height: auto; 
+    }
+    .btn { 
+      background: linear-gradient(135deg, #4a90ff, #2e6bff); 
+      color: white; padding: 12px 24px; 
+      border-radius: 8px; cursor: pointer; 
+      transition: transform 0.2s, box-shadow 0.2s; 
+      font-weight: 600; 
+    }
+    .btn:hover { 
+      transform: scale(1.05); 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+    }
+    .welcome { text-align: center; margin-bottom: 30px; }
+    .welcome h1 { 
+      font-size: 2rem; font-weight: bold; color: white; 
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+    }
+    .progress-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+    .progress { width: 0%; height: 100%; background: #4a90ff; transition: width 0.5s; }
+    @media (max-width: 768px) { 
+      .control-panel { flex-direction: column; } 
+      .preview-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } 
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center p-6">
+
+  <div class="welcome">
+    <h1>Instant Passport Photo Maker</h1>
+    <p class="text-white text-lg mt-2">
+      Upload a photo and instantly generate passport-size prints on A4 sheets
+    </p>
+  </div>
+
+  <div class="card p-6 w-full max-w-6xl">
+    <!-- Upload Section -->
+    <div id="uploadZone" class="upload-zone">
+      <p class="text-gray-700 text-lg mb-4">Drag & drop photos here or click to select</p>
+      <input type="file" id="photoInput" multiple accept="image/*" class="hidden">
+      <button type="button" id="selectBtn" class="btn">Select Photos</button>
+      <p class="text-sm text-gray-500 mt-4">Supports JPEG, PNG. Upload 1 or more photos.</p>
+    </div>
+
+    <!-- Preview Section -->
+    <div id="previewSection" class="mt-8 hidden">
+      <h2 class="text-xl font-semibold mb-4 text-center">Resized Passport Photos (35mm x 45mm)</h2>
+      <div class="mb-4 progress-bar">
+        <div class="progress"></div>
+      </div>
+      <div id="previewGrid" class="preview-grid"></div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controlPanel" class="control-panel hidden">
+      <label class="text-sm font-medium">Background:</label>
+      <input type="color" id="bgColor" value="#ffffff" class="border border-gray-300 rounded-lg w-12 h-10">
+
+      <label class="text-sm font-medium">Photos per sheet:</label>
+      <select id="photoCount" class="border border-gray-300 rounded-lg p-2">
+        <option value="20" selected>20 (Standard)</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+      </select>
+
+      <button type="button" id="composeBtn" class="btn">Generate A4 Sheet</button>
+    </div>
+
+    <!-- Canvas Section -->
+    <div id="canvasSection" class="canvas-container hidden">
+      <h2 class="text-xl font-semibold mb-4">Your A4 Passport Photo Sheet</h2>
+      <canvas id="a4Canvas"></canvas>
+      <br>
+      <a id="downloadLink" class="btn mt-4 inline-block" download="passport_photos_a4.png">Download PNG</a>
+      <button id="downloadPDF" class="btn mt-4 inline-block">Download PDF</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Constants ---
+    const PASSPORT_WIDTH_MM = 35, PASSPORT_HEIGHT_MM = 45, DPI = 300;
+    const A4_WIDTH_MM = 210, A4_HEIGHT_MM = 297;
+    const A4_WIDTH_PX = Math.round((A4_WIDTH_MM / 25.4) * DPI);
+    const A4_HEIGHT_PX = Math.round((A4_HEIGHT_MM / 25.4) * DPI);
+    const PASSPORT_WIDTH_PX = Math.round((PASSPORT_WIDTH_MM / 25.4) * DPI);
+    const PASSPORT_HEIGHT_PX = Math.round((PASSPORT_HEIGHT_MM / 25.4) * DPI);
+
+    // --- Elements ---
+    const uploadZone = document.getElementById('uploadZone');
+    const photoInput = document.getElementById('photoInput');
+    const selectBtn = document.getElementById('selectBtn');
+    const previewSection = document.getElementById('previewSection');
+    const previewGrid = document.getElementById('previewGrid');
+    const controlPanel = document.getElementById('controlPanel');
+    const composeBtn = document.getElementById('composeBtn');
+    const canvasSection = document.getElementById('canvasSection');
+    const a4Canvas = document.getElementById('a4Canvas');
+    const downloadLink = document.getElementById('downloadLink');
+    const progressBar = document.querySelector('.progress');
+    const bgColorInput = document.getElementById('bgColor');
+    const photoCountSelect = document.getElementById('photoCount');
+    const downloadPDFBtn = document.getElementById('downloadPDF');
+
+    let photos = [], resizedPhotos = [];
+
+    a4Canvas.width = A4_WIDTH_PX;
+    a4Canvas.height = A4_HEIGHT_PX;
+
+    // --- Upload Handling ---
+    selectBtn.addEventListener('click', () => photoInput.click());
+    photoInput.addEventListener('change', (e) => processFiles(e.target.files));
+    uploadZone.addEventListener('dragover', (e) => e.preventDefault());
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault(); processFiles(e.dataTransfer.files);
+    });
+
+    function processFiles(files) {
+      photos = Array.from(files).filter(f => f.type.startsWith('image/'));
+      if (photos.length === 0) return alert('No valid image files selected.');
+      loadResizedPreviews();
+      previewSection.classList.remove('hidden');
+      controlPanel.classList.remove('hidden');
+      uploadZone.classList.add('hidden');
+    }
+
+    async function loadResizedPreviews() {
+      previewGrid.innerHTML = ''; resizedPhotos = [];
+      progressBar.style.width = '0%';
+      const total = photos.length; let loaded = 0;
+
+      for (const photo of photos) {
+        const img = await loadImage(photo);
+        const resized = resizeToPassport(img);
+        resizedPhotos.push(resized);
+        addPreviewItem(resized, loaded);
+        progressBar.style.width = `${((loaded++ + 1) / total) * 100}%`;
+      }
+      progressBar.style.width = '100%';
+      setTimeout(() => progressBar.style.width = '0%', 500);
+    }
+
+    function loadImage(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    function resizeToPassport(img) {
+      const canvas = document.createElement('canvas');
+      canvas.width = PASSPORT_WIDTH_PX; canvas.height = PASSPORT_HEIGHT_PX;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, PASSPORT_WIDTH_PX, PASSPORT_HEIGHT_PX);
+      return canvas;
+    }
+
+    function addPreviewItem(canvas, index) {
+      const item = document.createElement('div');
+      item.className = 'preview-item';
+      item.innerHTML = `
+        <img class="preview-img" src="${canvas.toDataURL()}" alt="Preview ${index}">
+        <span class="remove-btn" onclick="removePhoto(${index})">&times;</span>`;
+      previewGrid.appendChild(item);
+    }
+
+    window.removePhoto = function(index) {
+      photos.splice(index, 1);
+      resizedPhotos.splice(index, 1);
+      loadResizedPreviews();
+    };
+
+    // --- Compose A4 ---
+    composeBtn.addEventListener('click', () => {
+      const bgColor = bgColorInput.value;
+      const perPage = parseInt(photoCountSelect.value);
+      composeA4Layout(bgColor, perPage);
+      canvasSection.classList.remove('hidden');
+    });
+
+    function composeA4Layout(bgColor, perPage) {
+      const ctx = a4Canvas.getContext('2d');
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, A4_WIDTH_PX, A4_HEIGHT_PX);
+
+      // Calculate grid automatically
+      const cols = Math.ceil(Math.sqrt(perPage));
+      const rows = Math.ceil(perPage / cols);
+      const marginX = 60, marginY = 60;
+      const spacingX = (A4_WIDTH_PX - 2 * marginX - PASSPORT_WIDTH_PX * cols) / (cols - 1);
+      const spacingY = (A4_HEIGHT_PX - 2 * marginY - PASSPORT_HEIGHT_PX * rows) / (rows - 1);
+
+      let photoIndex = 0;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          if (photoIndex >= perPage) break;
+          const img = resizedPhotos[photoIndex % resizedPhotos.length];
+          const x = marginX + col * (PASSPORT_WIDTH_PX + spacingX);
+          const y = marginY + row * (PASSPORT_HEIGHT_PX + spacingY);
+          ctx.drawImage(img, x, y);
+          photoIndex++;
+        }
+      }
+
+      a4Canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+      });
+    }
+
+    // --- PDF Download ---
+    downloadPDFBtn.addEventListener('click', () => {
+      const pdfCanvas = document.createElement('canvas');
+      pdfCanvas.width = A4_WIDTH_PX; pdfCanvas.height = A4_HEIGHT_PX;
+      pdfCanvas.getContext('2d').drawImage(a4Canvas, 0, 0);
+      const imgData = pdfCanvas.toDataURL('image/png');
+      const win = window.open('', '_blank');
+      win.document.write(`<img src="${imgData}" style="width:100%">`);
+    });
+
+    // --- PWA Support ---
+    if ('serviceWorker' in navigator) {
+      const swCode = `self.addEventListener('fetch', e => e.respondWith(fetch(e.request)))`;
+      const swBlob = new Blob([swCode], {type: 'application/javascript'});
+      navigator.serviceWorker.register(URL.createObjectURL(swBlob));
+    }
+  </script>
+</body>
+</html>
